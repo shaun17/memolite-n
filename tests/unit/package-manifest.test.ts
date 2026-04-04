@@ -12,9 +12,28 @@ type PackageJson = {
   engines?: Record<string, string>;
 };
 
+type TsConfigJson = {
+  extends?: string;
+  compilerOptions?: {
+    noEmit?: boolean;
+    outDir?: string;
+    rootDir?: string;
+  };
+};
+
 const readPackageJson = (): PackageJson => {
   const packageJsonPath = resolve(import.meta.dirname, "../../package.json");
   return JSON.parse(readFileSync(packageJsonPath, "utf8")) as PackageJson;
+};
+
+const readBuildTsConfig = (): TsConfigJson => {
+  const tsConfigPath = resolve(import.meta.dirname, "../../tsconfig.build.json");
+  return JSON.parse(readFileSync(tsConfigPath, "utf8")) as TsConfigJson;
+};
+
+const readBinEntry = (): string => {
+  const binPath = resolve(import.meta.dirname, "../../bin/memolite.js");
+  return readFileSync(binPath, "utf8");
 };
 
 describe("package manifest", () => {
@@ -52,5 +71,20 @@ describe("package manifest", () => {
       expect.arrayContaining(["bin", "dist", "assets/openclaw-plugin"])
     );
     expect(packageJson.engines?.node).toBeDefined();
+  });
+
+  it("emits build artifacts into dist for publish-time execution", () => {
+    const tsConfig = readBuildTsConfig();
+
+    expect(tsConfig.compilerOptions?.outDir).toBe("./dist");
+    expect(tsConfig.compilerOptions?.rootDir).toBe("./src");
+    expect(tsConfig.compilerOptions?.noEmit).toBe(false);
+  });
+
+  it("resolves the memolite bin through built dist output instead of src", () => {
+    const binEntry = readBinEntry();
+
+    expect(binEntry).toContain("../dist/cli/root-cli.js");
+    expect(binEntry).not.toContain("../src/cli/root-cli.js");
   });
 });
