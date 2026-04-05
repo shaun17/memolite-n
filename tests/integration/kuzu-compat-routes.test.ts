@@ -15,7 +15,7 @@ describe("kuzu compatibility routes", () => {
     delete process.env.MEMOLITE_KUZU_PATH;
   });
 
-  it("writes episodic graph projections into the configured kuzu directory", async () => {
+  it("writes episodic graph projections into the configured kuzu database file", async () => {
     const root = mkdtempSync(join(tmpdir(), "memolite-n-kuzu-"));
     const kuzuPath = join(root, "kuzu");
     process.env.MEMOLITE_SQLITE_PATH = join(root, "memolite.sqlite3");
@@ -60,7 +60,7 @@ describe("kuzu compatibility routes", () => {
       }
     });
 
-    const database = new Database(join(kuzuPath, "graph.kuzu"));
+    const database = new Database(kuzuPath);
     await database.init();
     const connection = new Connection(database);
     await connection.init();

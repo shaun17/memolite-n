@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
 import { Connection, Database, type QueryResult } from "kuzu";
 
@@ -49,10 +49,10 @@ const emptySnapshot = (): GraphMirrorSnapshot => ({
 });
 
 export class KuzuCompatStore {
-  constructor(private readonly kuzuDir: string) {}
+  constructor(private readonly kuzuPath: string) {}
 
   get databasePath(): string {
-    return join(this.kuzuDir, "graph.kuzu");
+    return this.kuzuPath;
   }
 
   async clear(): Promise<void> {

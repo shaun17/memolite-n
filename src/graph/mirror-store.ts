@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname } from "node:path";
 
 import { buildDerivativesForEpisode } from "../derivatives/pipeline.js";
 import type { EpisodeRecord } from "../storage/episode-store.js";
@@ -37,7 +37,7 @@ export class GraphMirrorStore {
   private readonly snapshotPath: string;
 
   constructor(private readonly kuzuPath: string) {
-    this.snapshotPath = join(kuzuPath, "graph-mirror.json");
+    this.snapshotPath = `${kuzuPath}.graph-mirror.json`;
   }
 
   readSnapshot(): GraphMirrorSnapshot {
@@ -48,7 +48,7 @@ export class GraphMirrorStore {
   }
 
   writeSnapshot(snapshot: GraphMirrorSnapshot): void {
-    mkdirSync(this.kuzuPath, { recursive: true });
+    mkdirSync(dirname(this.snapshotPath), { recursive: true });
     writeFileSync(this.snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
   }
 

@@ -92,7 +92,6 @@ export const configureEnvironment = ({
 
 export const initializeLocalEnvironment = (settings: CliSettings): void => {
   mkdirSync(dirname(settings.sqlitePath), { recursive: true });
-  mkdirSync(settings.kuzuPath, { recursive: true });
   const fileDescriptor = openSync(settings.sqlitePath, "a");
   closeSync(fileDescriptor);
 };

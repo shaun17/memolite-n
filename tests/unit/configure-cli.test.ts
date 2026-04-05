@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -77,6 +77,8 @@ describe("configure cli helpers", () => {
     initializeLocalEnvironment(settings);
 
     expect(() => readFileSync(settings.sqlitePath, "utf8")).not.toThrow();
+    expect(existsSync(settings.kuzuPath)).toBe(false);
+    expect(statSync(dataDir).isDirectory()).toBe(true);
   });
 
   it("detects sqlite-vec by the configured path", () => {

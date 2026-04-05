@@ -1,5 +1,3 @@
-import { mkdirSync } from "node:fs";
-
 import { getSettings } from "../common/config/runtime-settings.js";
 import { createEmbedderProvider } from "../common/models/provider-factory.js";
 import { buildDerivativesForEpisode, vectorItemId } from "../derivatives/pipeline.js";
@@ -85,7 +83,6 @@ export const rebuildVectorsSnapshot = async ({
   const database = createSqliteDatabase({ sqlitePath });
   try {
     initializeSqliteSchema(database);
-    mkdirSync(kuzuPath, { recursive: true });
     const embedder = createMigrationEmbedder();
     await embedder.warmUp();
     let semanticCount = 0;
