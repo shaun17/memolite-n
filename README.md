@@ -1,7 +1,7 @@
 # memolite-n
 
 `memolite-n` 是 [`memolite`](https://github.com/shaun17/memolite) 的 Node.js / TypeScript 重写版本。  
-发布到 npm 后，包名使用 `memolite-n`，但对外命令保持为 `memolite`。
+发布到 npm 后，包名和命令名均为 `memolite-n`。
 
 项目目标：
 
@@ -12,19 +12,31 @@
 
 ## 特性
 
-- 单包发布：npm 包名 `memolite-n`，命令名 `memolite`
+- 单包发布：npm 包名 `memolite-n`，命令名 `memolite-n`
 - SQLite 真值存储，兼容 `~/.memolite/memolite.sqlite3` 和旧版 `memlite.sqlite3`
-- Kùzu 图投影兼容，复用同一个 Kùzu 目录
+- Kùzu 图投影兼容，复用同一个 Kùzu 目录（`~/.memolite/kuzu`）
 - 统一 CLI，覆盖 `serve`、`configure`、`mcp`、`service`、`openclaw`
 - REST API、MCP HTTP、MCP stdio
 - Episodic memory、semantic memory、short-term memory
 - 向量同步、snapshot 导入导出、repair / reconcile / rebuild-vectors
 - Node SDK
-- OpenClaw 插件运行时和配置管理
+- OpenClaw 插件运行时和配置管理（插件 ID：`openclaw-memolite-n`）
+
+## 与 Python 版共存
+
+Node 版和 Python 版可以同时安装，互不干扰：
+
+| 项目 | Python 版 | Node 版 |
+|------|-----------|---------|
+| 命令名 | `memolite` | `memolite-n` |
+| HTTP 端口 | `18731` | `18732` |
+| OpenClaw 插件 ID | `openclaw-memolite` | `openclaw-memolite-n` |
+| SQLite 文件 | `~/.memolite/memolite.sqlite3` | 共用同一文件 |
+| Kùzu 目录 | `~/.memolite/kuzu` | 共用同一目录 |
 
 ## 架构总览
 
-`memolite-n` 采用“接口层 -> 组装层 -> 领域服务 -> 存储与模型适配层”的结构。
+`memolite-n` 采用"接口层 -> 组装层 -> 领域服务 -> 存储与模型适配层"的结构。
 
 ### 1. 接口层
 
@@ -151,16 +163,14 @@ memolite-n/
 
 ## 安装
 
-### 发布到 npm 之后
-
 ```bash
 npm install -g memolite-n
 ```
 
-安装后命令仍然是：
+安装后使用：
 
 ```bash
-memolite
+memolite-n serve
 ```
 
 ### 从源码开发
@@ -202,29 +212,29 @@ npm run build
 可以先生成样例配置：
 
 ```bash
-memolite configure sample-config --output .env.example
+memolite-n configure sample-config --output .env.example
 ```
 
 也可以直接生成运行时配置：
 
 ```bash
-memolite configure configure --output .env --overwrite
+memolite-n configure configure --output .env --overwrite
 ```
 
-`memolite` 运行时会自动读取当前工作目录下的 `.env`。
+`memolite-n` 运行时会自动读取当前工作目录下的 `.env`。
 
 ## 使用方法
 
 ### 1. 初始化本地数据目录
 
 ```bash
-memolite configure init
+memolite-n configure init
 ```
 
 ### 2. 启动 HTTP 服务
 
 ```bash
-memolite serve
+memolite-n serve
 ```
 
 默认监听：
@@ -309,13 +319,13 @@ curl -X POST http://127.0.0.1:18732/memories/search \
 启动 MCP stdio：
 
 ```bash
-memolite mcp stdio
+memolite-n mcp stdio
 ```
 
 启动 MCP HTTP：
 
 ```bash
-memolite mcp http
+memolite-n mcp http
 ```
 
 MCP HTTP 端点：
@@ -330,34 +340,34 @@ MCP HTTP 端点：
 导出 snapshot：
 
 ```bash
-memolite configure export --output ./snapshot.json
+memolite-n configure export --output ./snapshot.json
 ```
 
 导入 snapshot：
 
 ```bash
-memolite configure import --input ./snapshot.json
+memolite-n configure import --input ./snapshot.json
 ```
 
 检查 sqlite-vec：
 
 ```bash
-memolite configure detect-sqlite-vec --extension-path /path/to/sqlite-vec
+memolite-n configure detect-sqlite-vec --extension-path /path/to/sqlite-vec
 ```
 
 对齐并修复当前状态：
 
 ```bash
-memolite configure reconcile --output ./reconcile.json
-memolite configure repair --output ./repair.json
-memolite configure rebuild-vectors --target all --output ./rebuild.json
+memolite-n configure reconcile --output ./reconcile.json
+memolite-n configure repair --output ./repair.json
+memolite-n configure rebuild-vectors --target all --output ./rebuild.json
 ```
 
 压测与基准：
 
 ```bash
-memolite configure benchmark-search --output ./benchmark.json
-memolite configure load-test --base-url http://127.0.0.1:18732 --output ./load-test.json
+memolite-n configure benchmark-search --output ./benchmark.json
+memolite-n configure load-test --base-url http://127.0.0.1:18732 --output ./load-test.json
 ```
 
 ### 6. service 管理
@@ -365,29 +375,29 @@ memolite configure load-test --base-url http://127.0.0.1:18732 --output ./load-t
 macOS 和 Linux 都支持用户级 service 管理：
 
 ```bash
-memolite service install
-memolite service enable
-memolite service status
-memolite service restart
-memolite service disable
-memolite service uninstall
+memolite-n service install
+memolite-n service enable
+memolite-n service status
+memolite-n service restart
+memolite-n service disable
+memolite-n service uninstall
 ```
 
 ### 7. OpenClaw 集成
 
 ```bash
-memolite openclaw setup
-memolite openclaw status
-memolite openclaw doctor
-memolite openclaw uninstall
+memolite-n openclaw setup
+memolite-n openclaw status
+memolite-n openclaw doctor
+memolite-n openclaw uninstall
 ```
 
 配置查看和修改：
 
 ```bash
-memolite openclaw configure show
-memolite openclaw configure set --base-url http://127.0.0.1:18732
-memolite openclaw configure reset
+memolite-n openclaw configure show
+memolite-n openclaw configure set --base-url http://127.0.0.1:18732
+memolite-n openclaw configure reset
 ```
 
 ## SDK 使用
@@ -463,12 +473,3 @@ npm run build
 - `scripts/memolite_service.sh`
 
 这些脚本主要用于本地调试和运维包装。
-
-## 发布说明
-
-后续发布到 npm 时：
-
-- npm 包名：`memolite-n`
-- 全局命令名：`memolite`
-
-这两者是刻意分离的，目的是避免包名冲突，同时保留历史命令入口。
