@@ -130,7 +130,6 @@ memolite-n/
 兼容旧路径：
 
 - 如果 `~/.memolite/memolite.sqlite3` 不存在，但 `~/.memolite/memlite.sqlite3` 存在，会自动回退使用旧文件
-- 兼容旧环境变量前缀 `MEMLITE_*`
 
 ## 模型策略
 

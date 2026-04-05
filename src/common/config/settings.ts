@@ -1,7 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const LEGACY_ENV_PREFIX = "MEMLITE_";
 export const ENV_PREFIX = "MEMOLITE_";
 
 export const DEFAULT_DATA_DIR = join(homedir(), ".memolite");

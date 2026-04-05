@@ -3,15 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DATA_DIR,
   DEFAULT_KUZU_PATH,
-  LEGACY_ENV_PREFIX,
   LEGACY_SQLITE_PATH,
   ENV_PREFIX,
   resolveDefaultSqlitePath
 } from "../../src/common/config/settings.js";
 
 describe("settings compatibility", () => {
-  it("keeps the same environment prefixes as Python", () => {
-    expect(LEGACY_ENV_PREFIX).toBe("MEMLITE_");
+  it("uses the MEMOLITE environment prefix", () => {
     expect(ENV_PREFIX).toBe("MEMOLITE_");
   });
 

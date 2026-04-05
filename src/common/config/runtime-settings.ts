@@ -2,9 +2,7 @@ import { existsSync } from "node:fs";
 
 import {
   resolveDefaultSqlitePath,
-  DEFAULT_KUZU_PATH,
-  ENV_PREFIX,
-  LEGACY_ENV_PREFIX
+  DEFAULT_KUZU_PATH
 } from "./settings.js";
 
 export type RuntimeSettings = {
@@ -33,18 +31,6 @@ export type RuntimeSettings = {
 };
 
 let cachedSettings: RuntimeSettings | null = null;
-
-const backfillLegacyEnvironment = (): void => {
-  for (const [key, value] of Object.entries(process.env)) {
-    if (!key.startsWith(LEGACY_ENV_PREFIX) || value === undefined) {
-      continue;
-    }
-    const modernKey = `${ENV_PREFIX}${key.slice(LEGACY_ENV_PREFIX.length)}`;
-    if (process.env[modernKey] === undefined) {
-      process.env[modernKey] = value;
-    }
-  }
-};
 
 const readString = (key: string, fallback: string): string => {
   return process.env[key] ?? fallback;
@@ -85,8 +71,6 @@ export const getSettings = (): RuntimeSettings => {
   if (cachedSettings !== null) {
     return cachedSettings;
   }
-
-  backfillLegacyEnvironment();
 
   cachedSettings = {
     appName: readString("MEMOLITE_APP_NAME", "MemoLite"),

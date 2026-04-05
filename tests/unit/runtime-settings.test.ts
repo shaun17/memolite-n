@@ -35,12 +35,12 @@ describe("runtime settings", () => {
     expect(settings.rerankerModel).toBe("reranker-demo");
   });
 
-  it("backfills legacy MEMLITE_* variables when the modern ones are absent", () => {
+  it("ignores legacy MEMLITE_* variables", () => {
     process.env.MEMLITE_PORT = "19999";
 
     const settings = getSettings();
 
-    expect(settings.port).toBe(19999);
-    expect(process.env.MEMOLITE_PORT).toBe("19999");
+    expect(settings.port).toBe(18731);
+    expect(process.env.MEMOLITE_PORT).toBeUndefined();
   });
 });
