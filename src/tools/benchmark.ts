@@ -4,6 +4,7 @@ import { getSettings } from "../common/config/runtime-settings.js";
 import { createEmbedderProvider } from "../common/models/provider-factory.js";
 import { CompatibilitySyncService } from "../compatibility/sync-service.js";
 import { GraphMirrorStore } from "../graph/mirror-store.js";
+import { KuzuCompatStore } from "../graph/kuzu-compat-store.js";
 import { EpisodicSearchService } from "../episodic/search-service.js";
 import { MemoryConfigService } from "../memory/config-service.js";
 import { SemanticSearchService } from "../semantic/search-service.js";
@@ -62,10 +63,12 @@ export const benchmarkSearchWorkload = async ({
       episodeStore,
       featureStore,
       new GraphMirrorStore(_kuzuPath),
-      embedderProvider
+      embedderProvider,
+      new KuzuCompatStore(_kuzuPath)
     );
     const episodicSearch = new EpisodicSearchService(database, episodeStore, {
       embedder: embedderProvider,
+      graphStore: new KuzuCompatStore(_kuzuPath),
       rerankEnabledGetter: () => memoryConfig.getEpisodic().rerank_enabled,
       candidateMultiplier: settings.episodicSearchCandidateMultiplier,
       maxCandidates: settings.episodicSearchMaxCandidates

@@ -2,6 +2,7 @@ import {
   type EmbedderProvider,
   type RerankerProvider
 } from "../common/models/provider-factory.js";
+import { KuzuCompatStore } from "../graph/kuzu-compat-store.js";
 import type { MetricsRegistry } from "../metrics/registry.js";
 import { type EpisodeRecord, EpisodeStore } from "../storage/episode-store.js";
 import type { SqliteDatabase } from "../storage/sqlite/database.js";
@@ -45,6 +46,7 @@ export type SearchEpisodesInput = {
 
 type EpisodicSearchServiceOptions = {
   embedder: EmbedderProvider;
+  graphStore: KuzuCompatStore;
   reranker?: RerankerProvider | null;
   rerankEnabledGetter?: () => boolean;
   candidateMultiplier?: number;
@@ -62,57 +64,75 @@ export class EpisodicSearchService {
   async search(input: SearchEpisodesInput): Promise<EpisodicSearchResponse> {
     this.options.metrics?.increment("episodic_search_total");
     const queryVector = await this.options.embedder.encode(input.query);
-    const candidateEpisodes = this.episodeStore
+    const sessionEpisodes = this.episodeStore
       .listEpisodes({
         sessionKey: input.sessionKey,
         includeDeleted: false
       })
-      .filter((episode) => input.sessionId === undefined || episode.session_id === input.sessionId)
-      .filter((episode) => input.producerRole === undefined || episode.producer_role === input.producerRole)
-      .filter((episode) => input.episodeType === undefined || episode.episode_type === input.episodeType);
+      .filter((episode) => input.sessionId === undefined || episode.session_id === input.sessionId);
 
+    const allowedEpisodeUids =
+      input.producerRole === undefined && input.episodeType === undefined
+        ? null
+        : new Set(
+            sessionEpisodes
+              .filter(
+                (episode) =>
+                  input.producerRole === undefined ||
+                  episode.producer_role === input.producerRole
+              )
+              .filter(
+                (episode) =>
+                  input.episodeType === undefined || episode.episode_type === input.episodeType
+              )
+              .map((episode) => episode.uid)
+          );
+    if (allowedEpisodeUids !== null && allowedEpisodeUids.size === 0) {
+      return emptyResult(input.query);
+    }
+
+    const derivativeNodes = await this.options.graphStore.searchMatchingNodes({
+      nodeTable: "Derivative",
+      matchFilters: input.sessionId === undefined ? undefined : { session_id: input.sessionId }
+    });
+    const eligibleDerivativeNodes =
+      allowedEpisodeUids === null
+        ? derivativeNodes
+        : derivativeNodes.filter((node) =>
+            allowedEpisodeUids.has(String(node.properties.episode_uid ?? ""))
+          );
+    if (eligibleDerivativeNodes.length === 0) {
+      return emptyResult(input.query);
+    }
+    const episodeUidByDerivativeUid = await this.lookupEpisodeUids(
+      eligibleDerivativeNodes.map((node) => String(node.properties.uid ?? ""))
+    );
     const derivatives = this.lookupDerivativeEmbeddings(
-      candidateEpisodes.map((episode) => episode.uid)
+      Object.keys(episodeUidByDerivativeUid)
     );
     this.options.metrics?.increment("vec_queries_total");
     this.options.metrics?.increment("graph_queries_total");
-    const bestDerivativeByEpisode = new Map<
-      string,
-      {
-        derivative_uid: string;
-        score: number;
-      }
-    >();
-    for (const derivative of derivatives) {
-      const score = cosineSimilarity(queryVector, derivative.embedding);
-      const current = bestDerivativeByEpisode.get(derivative.episode_uid);
-      if (current === undefined || score > current.score) {
-        bestDerivativeByEpisode.set(derivative.episode_uid, {
-          derivative_uid: derivative.derivative_uid,
-          score
-        });
-      }
-    }
+    const episodesByUid = new Map(sessionEpisodes.map((episode) => [episode.uid, episode] as const));
 
-    const matches = candidateEpisodes
-      .map((episode) => {
-        const best = bestDerivativeByEpisode.get(episode.uid);
+    const matches = derivatives
+      .map((derivative) => {
+        const episodeUid = episodeUidByDerivativeUid[derivative.derivative_uid];
+        const episode = episodeUid === undefined ? undefined : episodesByUid.get(episodeUid);
+        if (episode === undefined) {
+          return null;
+        }
         return {
           episode,
-          derivative_uid: best?.derivative_uid ?? `${episode.uid}:d:1`,
-          score: best?.score ?? 0
+          derivative_uid: derivative.derivative_uid,
+          score: cosineSimilarity(queryVector, derivative.embedding)
         };
       })
-      .filter((match) => match.score >= (input.minScore ?? 0.0001))
-      .sort((left, right) => {
-        if (right.score !== left.score) {
-          return right.score - left.score;
-        }
-        if (left.episode.sequence_num !== right.episode.sequence_num) {
-          return left.episode.sequence_num - right.episode.sequence_num;
-        }
-        return left.episode.uid.localeCompare(right.episode.uid);
-      });
+      .filter((match): match is EpisodicSearchMatch => match !== null)
+      .sort(compareMatches)
+      .filter((match, index, items) => {
+        return items.findIndex((candidate) => candidate.episode.uid === match.episode.uid) === index;
+      })
+      .filter((match) => match.score >= (input.minScore ?? 0.0001));
 
     const rerankEnabled = this.options.rerankEnabledGetter?.() ?? true;
     const limited = matches.slice(
@@ -148,32 +168,48 @@ export class EpisodicSearchService {
     };
   }
 
-  private lookupDerivativeEmbeddings(episodeUids: string[]): Array<{
+  private async lookupEpisodeUids(
+    derivativeUids: string[]
+  ): Promise<Record<string, string>> {
+    const related = await this.options.graphStore.searchRelatedNodesBatch({
+      sourceTable: "Derivative",
+      sourceUids: derivativeUids,
+      relationTable: "DERIVED_FROM",
+      targetTable: "Episode"
+    });
+    const episodeUidByDerivativeUid: Record<string, string> = {};
+    for (const [derivativeUid, targets] of Object.entries(related)) {
+      const episode = targets[0];
+      if (episode !== undefined) {
+        episodeUidByDerivativeUid[derivativeUid] = String(episode.properties.uid ?? "");
+      }
+    }
+    return episodeUidByDerivativeUid;
+  }
+
+  private lookupDerivativeEmbeddings(derivativeUids: string[]): Array<{
     derivative_uid: string;
-    episode_uid: string;
     embedding: number[];
   }> {
-    if (episodeUids.length === 0) {
+    if (derivativeUids.length === 0) {
       return [];
     }
-    const placeholders = episodeUids.map(() => "?").join(", ");
+    const placeholders = derivativeUids.map(() => "?").join(", ");
     const rows = this.database.connection
       .prepare(
         `
-          SELECT derivative_uid, episode_uid, embedding
+          SELECT derivative_uid, embedding
           FROM derivative_feature_vectors
-          WHERE episode_uid IN (${placeholders})
+          WHERE derivative_uid IN (${placeholders})
           ORDER BY derivative_uid
         `
       )
-      .all(...episodeUids) as Array<{
+      .all(...derivativeUids) as Array<{
       derivative_uid: string;
-      episode_uid: string;
       embedding: Uint8Array;
     }>;
     return rows.map((row) => ({
       derivative_uid: row.derivative_uid,
-      episode_uid: row.episode_uid,
       embedding: decodeFloat32Embedding(row.embedding)
     }));
   }
@@ -201,6 +237,27 @@ export class EpisodicSearchService {
     });
   }
 }
+
+const emptyResult = (query: string): EpisodicSearchResponse => ({
+  mode: "episodic",
+  rewritten_query: query,
+  subqueries: [query],
+  episodic_matches: [],
+  semantic_features: [],
+  combined: [],
+  expanded_context: [],
+  short_term_context: ""
+});
+
+const compareMatches = (left: EpisodicSearchMatch, right: EpisodicSearchMatch): number => {
+  if (right.score !== left.score) {
+    return right.score - left.score;
+  }
+  if (left.episode.sequence_num !== right.episode.sequence_num) {
+    return left.episode.sequence_num - right.episode.sequence_num;
+  }
+  return left.episode.uid.localeCompare(right.episode.uid);
+};
 
 const candidateLimit = (
   limit: number,

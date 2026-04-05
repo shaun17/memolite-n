@@ -112,6 +112,7 @@ export const createResources = (): AppResources => {
   const episodeStore = new EpisodeStore(sqlite);
   const episodicSearch = new EpisodicSearchService(sqlite, episodeStore, {
     embedder: embedderProvider,
+    graphStore: kuzuStore,
     reranker: rerankerProvider,
     rerankEnabledGetter: () => memoryConfig.getEpisodic().rerank_enabled,
     candidateMultiplier: settings.episodicSearchCandidateMultiplier,

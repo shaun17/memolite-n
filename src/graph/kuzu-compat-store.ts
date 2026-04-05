@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { Connection, Database, type QueryResult } from "kuzu";
+import { Connection, Database, type KuzuValue, type QueryResult } from "kuzu";
 
 import { buildDerivativesForEpisode } from "../derivatives/pipeline.js";
 import type { EpisodeRecord } from "../storage/episode-store.js";
@@ -10,6 +10,13 @@ import type {
   GraphEpisodeNode,
   GraphMirrorSnapshot
 } from "./mirror-store.js";
+
+export type NodeTable = "Episode" | "Derivative";
+
+export type GraphNodeRecord = {
+  nodeTable: NodeTable;
+  properties: Record<string, unknown>;
+};
 
 const KUZU_BOOTSTRAP_STATEMENTS = [
   `
@@ -207,6 +214,82 @@ export class KuzuCompatStore {
     }
   }
 
+  async searchMatchingNodes(input: {
+    nodeTable: NodeTable;
+    matchFilters?: Record<string, unknown>;
+    matchAnyUids?: string[];
+  }): Promise<GraphNodeRecord[]> {
+    const properties = nodeProperties(input.nodeTable);
+    return this.withConnection(async (connection) => {
+      const whereClauses: string[] = [];
+      const parameters: Record<string, KuzuValue> = {};
+      for (const [key, value] of Object.entries(input.matchFilters ?? {})) {
+        if (!properties.includes(key)) {
+          continue;
+        }
+        const parameterName = `filter_${key}`;
+        whereClauses.push(`n.${key} = $${parameterName}`);
+        parameters[parameterName] = (value ?? null) as KuzuValue;
+      }
+      if ((input.matchAnyUids?.length ?? 0) > 0) {
+        whereClauses.push("n.uid IN $match_any_uids");
+        parameters.match_any_uids = input.matchAnyUids ?? [];
+      }
+      let query = `MATCH (n:${input.nodeTable})`;
+      if (whereClauses.length > 0) {
+        query += ` WHERE ${whereClauses.join(" AND ")}`;
+      }
+      query += ` RETURN ${properties.map((propertyName) => `n.${propertyName} AS ${propertyName}`).join(", ")}`;
+      const statement = await connection.prepare(query);
+      const rows = (await asSingleResult(
+        await connection.execute(statement, parameters)
+      ).getAll()) as Array<Record<string, KuzuValue>>;
+      return rows.map((row) => ({
+        nodeTable: input.nodeTable,
+        properties: row
+      }));
+    });
+  }
+
+  async searchRelatedNodesBatch(input: {
+    sourceTable: NodeTable;
+    sourceUids: string[];
+    relationTable: string;
+    targetTable: NodeTable;
+  }): Promise<Record<string, GraphNodeRecord[]>> {
+    if (input.sourceUids.length === 0) {
+      return {};
+    }
+    const targetProperties = nodeProperties(input.targetTable);
+    return this.withConnection(async (connection) => {
+      const query = `
+        MATCH (src:${input.sourceTable})-[:${input.relationTable}]->(dst:${input.targetTable})
+        WHERE src.uid IN $source_uids
+        RETURN src.uid AS source_uid, ${targetProperties
+          .map((propertyName) => `dst.${propertyName} AS ${propertyName}`)
+          .join(", ")}
+      `;
+      const statement = await connection.prepare(query);
+      const rows = (await asSingleResult(
+        await connection.execute(statement, { source_uids: input.sourceUids })
+      ).getAll()) as Array<Record<string, KuzuValue>>;
+      const grouped = Object.fromEntries(
+        input.sourceUids.map((uid) => [uid, [] as GraphNodeRecord[]])
+      );
+      for (const row of rows) {
+        const sourceUid = String(row.source_uid ?? "");
+        const properties = Object.fromEntries(
+          targetProperties.map((propertyName) => [propertyName, row[propertyName] ?? null])
+        );
+        grouped[sourceUid]?.push({
+          nodeTable: input.targetTable,
+          properties
+        });
+      }
+      return grouped;
+    });
+  }
+
   private async withConnection<T>(
     work: (connection: Connection) => Promise<T>
   ): Promise<T> {
@@ -233,4 +316,19 @@ const asSingleResult = (result: QueryResult | QueryResult[]): QueryResult => {
 
 const asSingleResultSync = (result: QueryResult | QueryResult[]): QueryResult => {
   return Array.isArray(result) ? result[0]! : result;
+};
+
+const nodeProperties = (nodeTable: NodeTable): string[] => {
+  if (nodeTable === "Episode") {
+    return ["uid", "session_id", "content", "content_type", "created_at", "metadata_json"];
+  }
+  return [
+    "uid",
+    "episode_uid",
+    "session_id",
+    "content",
+    "content_type",
+    "sequence_num",
+    "metadata_json"
+  ];
 };

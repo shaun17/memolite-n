@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 
 import { getSettings } from "../common/config/runtime-settings.js";
+import { getPackageVersion } from "../common/version.js";
 import { createResources } from "../app/resources.js";
 import { registerSemanticConfigRoutes } from "./semantic-config-routes.js";
 import { ShortTermMemory } from "../memory/short-term-memory.js";
@@ -30,7 +31,7 @@ const buildOpenApiDocument = (): { openapi: string; info: { title: string; versi
   openapi: "3.1.0",
   info: {
     title: "memolite-n",
-    version: "0.1.0"
+    version: getPackageVersion()
   },
   paths: {
     "/health": {},
@@ -85,7 +86,7 @@ export const createHttpApp = (): FastifyInstance => {
     const settings = getSettings();
     return {
       service: settings.appName,
-      version: "0.1.0"
+      version: getPackageVersion()
     };
   });
 

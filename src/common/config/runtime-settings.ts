@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   resolveDefaultSqlitePath,
@@ -32,16 +33,56 @@ export type RuntimeSettings = {
 
 let cachedSettings: RuntimeSettings | null = null;
 
-const readString = (key: string, fallback: string): string => {
-  return process.env[key] ?? fallback;
+const loadDotEnv = (): Record<string, string> => {
+  const envPath = join(process.cwd(), ".env");
+  if (!existsSync(envPath)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    readFileSync(envPath, "utf8")
+      .split(/\r?\n/u)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"))
+      .flatMap((line) => {
+        const separator = line.indexOf("=");
+        if (separator <= 0) {
+          return [];
+        }
+        const key = line.slice(0, separator).trim();
+        const rawValue = line.slice(separator + 1).trim();
+        const value =
+          rawValue.startsWith("\"") && rawValue.endsWith("\"")
+            ? rawValue.slice(1, -1)
+            : rawValue.startsWith("'") && rawValue.endsWith("'")
+              ? rawValue.slice(1, -1)
+              : rawValue;
+        return [[key, value] as const];
+      })
+  );
 };
 
-const readOptionalString = (key: string): string | null => {
-  return process.env[key] ?? null;
+const readString = (
+  env: Record<string, string | undefined>,
+  key: string,
+  fallback: string
+): string => {
+  return env[key] ?? fallback;
 };
 
-const readBoolean = (key: string, fallback: boolean): boolean => {
-  const raw = process.env[key];
+const readOptionalString = (
+  env: Record<string, string | undefined>,
+  key: string
+): string | null => {
+  return env[key] ?? null;
+};
+
+const readBoolean = (
+  env: Record<string, string | undefined>,
+  key: string,
+  fallback: boolean
+): boolean => {
+  const raw = env[key];
   if (raw === undefined) {
     return fallback;
   }
@@ -55,8 +96,12 @@ const readBoolean = (key: string, fallback: boolean): boolean => {
   return fallback;
 };
 
-const readNumber = (key: string, fallback: number): number => {
-  const raw = process.env[key];
+const readNumber = (
+  env: Record<string, string | undefined>,
+  key: string,
+  fallback: number
+): number => {
+  const raw = env[key];
   if (raw === undefined) {
     return fallback;
   }
@@ -72,38 +117,54 @@ export const getSettings = (): RuntimeSettings => {
     return cachedSettings;
   }
 
+  const env = {
+    ...loadDotEnv(),
+    ...process.env
+  };
+
   cachedSettings = {
-    appName: readString("MEMOLITE_APP_NAME", "MemoLite"),
-    environment: readString("MEMOLITE_ENVIRONMENT", "development"),
-    logLevel: readString("MEMOLITE_LOG_LEVEL", "INFO"),
-    host: readString("MEMOLITE_HOST", "127.0.0.1"),
-    port: readNumber("MEMOLITE_PORT", 18731),
+    appName: readString(env, "MEMOLITE_APP_NAME", "MemoLite"),
+    environment: readString(env, "MEMOLITE_ENVIRONMENT", "development"),
+    logLevel: readString(env, "MEMOLITE_LOG_LEVEL", "INFO"),
+    host: readString(env, "MEMOLITE_HOST", "127.0.0.1"),
+    port: readNumber(env, "MEMOLITE_PORT", 18731),
     sqlitePath: readString(
+      env,
       "MEMOLITE_SQLITE_PATH",
       resolveDefaultSqlitePath({ exists: existsSync })
     ),
-    kuzuPath: readString("MEMOLITE_KUZU_PATH", DEFAULT_KUZU_PATH),
-    sqliteVecExtensionPath: readOptionalString("MEMOLITE_SQLITE_VEC_EXTENSION_PATH"),
-    mcpApiKey: readOptionalString("MEMOLITE_MCP_API_KEY"),
-    embedderProvider: readString("MEMOLITE_EMBEDDER_PROVIDER", "hash"),
-    embedderModel: readOptionalString("MEMOLITE_EMBEDDER_MODEL"),
-    embedderCacheEnabled: readBoolean("MEMOLITE_EMBEDDER_CACHE_ENABLED", true),
-    embedderCacheSize: readNumber("MEMOLITE_EMBEDDER_CACHE_SIZE", 1000),
-    rerankerProvider: readString("MEMOLITE_RERANKER_PROVIDER", "none"),
-    rerankerModel: readOptionalString("MEMOLITE_RERANKER_MODEL"),
-    modelBasePath: readOptionalString("MEMOLITE_MODEL_BASE_PATH"),
-    modelCacheDir: readOptionalString("MEMOLITE_MODEL_CACHE_DIR"),
-    allowRemoteModels: readBoolean("MEMOLITE_ALLOW_REMOTE_MODELS", true),
+    kuzuPath: readString(env, "MEMOLITE_KUZU_PATH", DEFAULT_KUZU_PATH),
+    sqliteVecExtensionPath: readOptionalString(env, "MEMOLITE_SQLITE_VEC_EXTENSION_PATH"),
+    mcpApiKey: readOptionalString(env, "MEMOLITE_MCP_API_KEY"),
+    embedderProvider: readString(env, "MEMOLITE_EMBEDDER_PROVIDER", "hash"),
+    embedderModel: readOptionalString(env, "MEMOLITE_EMBEDDER_MODEL"),
+    embedderCacheEnabled: readBoolean(env, "MEMOLITE_EMBEDDER_CACHE_ENABLED", true),
+    embedderCacheSize: readNumber(env, "MEMOLITE_EMBEDDER_CACHE_SIZE", 1000),
+    rerankerProvider: readString(env, "MEMOLITE_RERANKER_PROVIDER", "none"),
+    rerankerModel: readOptionalString(env, "MEMOLITE_RERANKER_MODEL"),
+    modelBasePath: readOptionalString(env, "MEMOLITE_MODEL_BASE_PATH"),
+    modelCacheDir: readOptionalString(env, "MEMOLITE_MODEL_CACHE_DIR"),
+    allowRemoteModels: readBoolean(env, "MEMOLITE_ALLOW_REMOTE_MODELS", true),
     semanticSearchCandidateMultiplier: readNumber(
+      env,
       "MEMOLITE_SEMANTIC_SEARCH_CANDIDATE_MULTIPLIER",
       3
     ),
-    semanticSearchMaxCandidates: readNumber("MEMOLITE_SEMANTIC_SEARCH_MAX_CANDIDATES", 100),
+    semanticSearchMaxCandidates: readNumber(
+      env,
+      "MEMOLITE_SEMANTIC_SEARCH_MAX_CANDIDATES",
+      100
+    ),
     episodicSearchCandidateMultiplier: readNumber(
+      env,
       "MEMOLITE_EPISODIC_SEARCH_CANDIDATE_MULTIPLIER",
       4
     ),
-    episodicSearchMaxCandidates: readNumber("MEMOLITE_EPISODIC_SEARCH_MAX_CANDIDATES", 100)
+    episodicSearchMaxCandidates: readNumber(
+      env,
+      "MEMOLITE_EPISODIC_SEARCH_MAX_CANDIDATES",
+      100
+    )
   };
 
   return cachedSettings;

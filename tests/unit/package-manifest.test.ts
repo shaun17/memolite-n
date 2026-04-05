@@ -67,6 +67,7 @@ describe("package manifest", () => {
     const packageJson = readPackageJson();
 
     expect(packageJson.scripts?.prepublishOnly).toBe("npm run test && npm run build");
+    expect(packageJson.scripts?.prepack).toBe("npm run build");
     expect(packageJson.files).toEqual(
       expect.arrayContaining(["bin", "dist", "assets/openclaw-plugin"])
     );

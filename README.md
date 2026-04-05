@@ -211,6 +211,8 @@ memolite configure sample-config --output .env.example
 memolite configure configure --output .env --overwrite
 ```
 
+`memolite` 运行时会自动读取当前工作目录下的 `.env`。
+
 ## 使用方法
 
 ### 1. 初始化本地数据目录

@@ -1,9 +1,16 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createHttpApp } from "../../src/http/app.js";
 import { clearSettingsCache } from "../../src/common/config/runtime-settings.js";
 
 describe("health routes", () => {
+  const packageVersion = JSON.parse(
+    readFileSync(resolve(import.meta.dirname, "../../package.json"), "utf8")
+  ).version as string;
+
   afterEach(() => {
     clearSettingsCache();
     delete process.env.MEMOLITE_APP_NAME;
@@ -40,7 +47,7 @@ describe("health routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       service: "MemLite Node",
-      version: "0.1.0"
+      version: packageVersion
     });
 
     await app.close();
@@ -54,6 +61,7 @@ describe("health routes", () => {
       url: "/openapi.json"
     });
     expect(openapi.statusCode).toBe(200);
+    expect(openapi.json().info.version).toBe(packageVersion);
     expect(openapi.json().paths).toHaveProperty("/projects");
 
     const invalidProject = await app.inject({

@@ -1,3 +1,7 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -42,5 +46,25 @@ describe("runtime settings", () => {
 
     expect(settings.port).toBe(18731);
     expect(process.env.MEMOLITE_PORT).toBeUndefined();
+  });
+
+  it("loads MEMOLITE settings from a local .env file", () => {
+    const root = mkdtempSync(join(tmpdir(), "memolite-n-dotenv-"));
+    const previousCwd = process.cwd();
+    try {
+      writeFileSync(
+        join(root, ".env"),
+        "MEMOLITE_APP_NAME=Env Loaded App\nMEMOLITE_PORT=19123\n",
+        "utf8"
+      );
+      process.chdir(root);
+
+      const settings = getSettings();
+
+      expect(settings.appName).toBe("Env Loaded App");
+      expect(settings.port).toBe(19123);
+    } finally {
+      process.chdir(previousCwd);
+    }
   });
 });
