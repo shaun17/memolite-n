@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const SERVICE_LABEL = "ai.memolite.server";
+export const SERVICE_LABEL = "ai.memolite-n.server";
 
 export type ServiceRenderInput = {
   label: string;
