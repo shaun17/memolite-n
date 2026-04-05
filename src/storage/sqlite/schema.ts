@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import type { SqliteDatabase } from "./database.js";
 
 const TABLE_STATEMENTS = [
@@ -64,22 +62,21 @@ const TABLE_STATEMENTS = [
   `
     CREATE TABLE IF NOT EXISTS semantic_feature_vectors (
       feature_id INTEGER PRIMARY KEY,
-      embedding BLOB NOT NULL
+      embedding BLOB NOT NULL,
+      FOREIGN KEY(feature_id) REFERENCES semantic_features(id) ON DELETE CASCADE
     )
   `,
   `
     CREATE TABLE IF NOT EXISTS derivative_feature_vectors (
-      derivative_uid TEXT PRIMARY KEY,
-      item_id INTEGER NOT NULL UNIQUE,
-      episode_uid TEXT NULL,
+      feature_id INTEGER PRIMARY KEY,
       embedding BLOB NOT NULL
     )
   `,
   `
     CREATE TABLE IF NOT EXISTS semantic_citations (
       feature_id INTEGER NOT NULL,
-      episode_uid TEXT NOT NULL,
-      PRIMARY KEY (feature_id, episode_uid)
+      episode_id TEXT NOT NULL,
+      PRIMARY KEY (feature_id, episode_id)
     )
   `,
   `
@@ -98,7 +95,8 @@ const TABLE_STATEMENTS = [
       org_level_set INTEGER NOT NULL DEFAULT 0,
       metadata_tags_sig TEXT NOT NULL,
       name TEXT NULL,
-      description TEXT NULL
+      description TEXT NULL,
+      UNIQUE (org_id, org_level_set, metadata_tags_sig)
     )
   `,
   `
@@ -125,7 +123,9 @@ const TABLE_STATEMENTS = [
       name TEXT NOT NULL,
       prompt TEXT NOT NULL,
       description TEXT NULL,
-      FOREIGN KEY(set_type_id) REFERENCES semantic_config_set_type(id) ON DELETE CASCADE
+      FOREIGN KEY(set_type_id) REFERENCES semantic_config_set_type(id) ON DELETE CASCADE,
+      UNIQUE (set_id, name),
+      UNIQUE (set_type_id, name)
     )
   `,
   `
@@ -136,7 +136,8 @@ const TABLE_STATEMENTS = [
       category_name TEXT NOT NULL,
       prompt TEXT NOT NULL,
       description TEXT NULL,
-      FOREIGN KEY(set_type_id) REFERENCES semantic_config_set_type(id) ON DELETE CASCADE
+      FOREIGN KEY(set_type_id) REFERENCES semantic_config_set_type(id) ON DELETE CASCADE,
+      UNIQUE (set_type_id, name)
     )
   `,
   `
@@ -145,7 +146,8 @@ const TABLE_STATEMENTS = [
       category_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       description TEXT NOT NULL,
-      FOREIGN KEY(category_id) REFERENCES semantic_config_category(id) ON DELETE CASCADE
+      FOREIGN KEY(category_id) REFERENCES semantic_config_category(id) ON DELETE CASCADE,
+      UNIQUE (category_id, name)
     )
   `,
   `
@@ -165,7 +167,8 @@ const INDEX_STATEMENTS = [
   "CREATE INDEX IF NOT EXISTS idx_episodes_session_id_deleted ON episodes (session_id, deleted)",
   "CREATE INDEX IF NOT EXISTS idx_episodes_role_type_deleted ON episodes (producer_role, episode_type, deleted)",
   "CREATE INDEX IF NOT EXISTS idx_semantic_features_lookup ON semantic_features (set_id, category, tag, feature_name, deleted)",
-  "CREATE INDEX IF NOT EXISTS idx_semantic_citations_episode ON semantic_citations (episode_uid, feature_id)",
+  "CREATE INDEX IF NOT EXISTS idx_semantic_features_prefix_set_id ON semantic_features (set_id)",
+  "CREATE INDEX IF NOT EXISTS idx_semantic_citations_episode_id ON semantic_citations (episode_id)",
   "CREATE INDEX IF NOT EXISTS idx_semantic_history_pending ON semantic_set_ingested_history (ingested, set_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_semantic_history_set_created ON semantic_set_ingested_history (set_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_semantic_config_category_set_id ON semantic_config_category (set_id, id)",
@@ -175,24 +178,6 @@ const INDEX_STATEMENTS = [
   "CREATE INDEX IF NOT EXISTS idx_semantic_config_disabled_set_id ON semantic_config_disabled_category (set_id, disabled_category)"
 ] as const;
 
-const hasColumn = (database: SqliteDatabase, table: string, column: string): boolean => {
-  const rows = database.connection.prepare(`PRAGMA table_info(${table})`).all() as Array<{
-    name: string;
-  }>;
-  return rows.some((row) => row.name === column);
-};
-
-const ensureColumn = (
-  database: SqliteDatabase,
-  table: string,
-  column: string,
-  definition: string
-): void => {
-  if (!hasColumn(database, table, column)) {
-    database.connection.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
-  }
-};
-
 const tableColumns = (database: SqliteDatabase, table: string): string[] => {
   return (database.connection.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
     (row) => row.name
@@ -201,63 +186,91 @@ const tableColumns = (database: SqliteDatabase, table: string): string[] => {
 
 const migrateDerivativeVectorTable = (database: SqliteDatabase): void => {
   const columns = tableColumns(database, "derivative_feature_vectors");
-  const hasModernShape =
-    columns.includes("derivative_uid") &&
-    columns.includes("item_id") &&
-    columns.includes("embedding");
-  if (hasModernShape) {
+
+  // Already in the Python-compatible shape: (feature_id INTEGER PRIMARY KEY, embedding BLOB NOT NULL)
+  if (columns.includes("feature_id") && !columns.includes("derivative_uid") && !columns.includes("item_id")) {
     return;
   }
 
+  // Old Node schema has derivative_uid + item_id; migrate by using item_id as feature_id
   database.connection.prepare("DROP TABLE IF EXISTS derivative_feature_vectors__new").run();
   database.connection
     .prepare(
       `
         CREATE TABLE derivative_feature_vectors__new (
-          derivative_uid TEXT PRIMARY KEY,
-          item_id INTEGER NOT NULL UNIQUE,
-          episode_uid TEXT NULL,
+          feature_id INTEGER PRIMARY KEY,
           embedding BLOB NOT NULL
         )
       `
     )
     .run();
 
-  if (columns.includes("feature_id") && columns.includes("embedding")) {
+  if (columns.includes("item_id") && columns.includes("embedding")) {
     const rows = database.connection
-      .prepare("SELECT feature_id, episode_uid, embedding FROM derivative_feature_vectors")
-      .all() as Array<{ feature_id: number; episode_uid?: string | null; embedding: Uint8Array }>;
+      .prepare("SELECT item_id, embedding FROM derivative_feature_vectors")
+      .all() as Array<{ item_id: number; embedding: Uint8Array }>;
     const insert = database.connection.prepare(
-      `
-        INSERT INTO derivative_feature_vectors__new (derivative_uid, item_id, episode_uid, embedding)
-        VALUES (?, ?, ?, ?)
-      `
+      "INSERT OR IGNORE INTO derivative_feature_vectors__new (feature_id, embedding) VALUES (?, ?)"
     );
     for (const row of rows) {
-      const derivativeUid = `legacy:${row.feature_id}`;
-      insert.run(derivativeUid, row.feature_id, row.episode_uid ?? null, row.embedding);
+      insert.run(row.item_id, row.embedding);
     }
-  } else if (columns.includes("episode_uid") && columns.includes("embedding")) {
+  } else if (columns.includes("feature_id") && columns.includes("embedding")) {
+    // Intermediate shape: feature_id already present but schema not yet clean — copy as-is
     const rows = database.connection
-      .prepare("SELECT episode_uid, embedding FROM derivative_feature_vectors")
-      .all() as Array<{ episode_uid: string | null; embedding: Uint8Array }>;
+      .prepare("SELECT feature_id, embedding FROM derivative_feature_vectors")
+      .all() as Array<{ feature_id: number; embedding: Uint8Array }>;
     const insert = database.connection.prepare(
-      `
-        INSERT INTO derivative_feature_vectors__new (derivative_uid, item_id, episode_uid, embedding)
-        VALUES (?, ?, ?, ?)
-      `
+      "INSERT OR IGNORE INTO derivative_feature_vectors__new (feature_id, embedding) VALUES (?, ?)"
     );
     for (const row of rows) {
-      const episodeUid = row.episode_uid ?? "";
-      const derivativeUid = episodeUid.length > 0 ? `${episodeUid}:d:1` : "legacy:unknown";
-      const itemId = stableVectorItemId(derivativeUid);
-      insert.run(derivativeUid, itemId, row.episode_uid, row.embedding);
+      insert.run(row.feature_id, row.embedding);
     }
   }
 
   database.connection.prepare("DROP TABLE derivative_feature_vectors").run();
   database.connection
     .prepare("ALTER TABLE derivative_feature_vectors__new RENAME TO derivative_feature_vectors")
+    .run();
+};
+
+const migrateSemanticCitationsTable = (database: SqliteDatabase): void => {
+  const columns = tableColumns(database, "semantic_citations");
+  // If already using episode_id, nothing to do
+  if (columns.includes("episode_id") && !columns.includes("episode_uid")) {
+    return;
+  }
+  // Old Node schema uses episode_uid — recreate table with episode_id
+  if (!columns.includes("episode_uid")) {
+    return;
+  }
+
+  database.connection.prepare("DROP TABLE IF EXISTS semantic_citations__new").run();
+  database.connection
+    .prepare(
+      `
+        CREATE TABLE semantic_citations__new (
+          feature_id INTEGER NOT NULL,
+          episode_id TEXT NOT NULL,
+          PRIMARY KEY (feature_id, episode_id)
+        )
+      `
+    )
+    .run();
+
+  const rows = database.connection
+    .prepare("SELECT feature_id, episode_uid FROM semantic_citations")
+    .all() as Array<{ feature_id: number; episode_uid: string }>;
+  const insert = database.connection.prepare(
+    "INSERT OR IGNORE INTO semantic_citations__new (feature_id, episode_id) VALUES (?, ?)"
+  );
+  for (const row of rows) {
+    insert.run(row.feature_id, row.episode_uid);
+  }
+
+  database.connection.prepare("DROP TABLE semantic_citations").run();
+  database.connection
+    .prepare("ALTER TABLE semantic_citations__new RENAME TO semantic_citations")
     .run();
 };
 
@@ -308,10 +321,6 @@ const migrateSemanticHistoryTable = (database: SqliteDatabase): void => {
     .run();
 };
 
-const stableVectorItemId = (uid: string): number => {
-  const digest = createHash("sha256").update(uid, "utf8").digest();
-  return Number(digest.readBigUInt64BE(0) & BigInt("0x7FFFFFFFFFFFFFFF"));
-};
 
 export const initializeSqliteSchema = (database: SqliteDatabase): void => {
   for (const statement of TABLE_STATEMENTS) {
@@ -320,8 +329,7 @@ export const initializeSqliteSchema = (database: SqliteDatabase): void => {
 
   migrateDerivativeVectorTable(database);
   migrateSemanticHistoryTable(database);
-  ensureColumn(database, "derivative_feature_vectors", "episode_uid", "TEXT NULL");
-  ensureColumn(database, "semantic_citations", "episode_uid", "TEXT NULL");
+  migrateSemanticCitationsTable(database);
 
   for (const statement of INDEX_STATEMENTS) {
     database.connection.prepare(statement).run();

@@ -47,7 +47,7 @@ describe("package manifest", () => {
     const packageJson = readPackageJson();
 
     expect(packageJson.bin).toMatchObject({
-      memolite: expect.any(String)
+      "memolite-n": expect.any(String)
     });
     expect(packageJson.bin).not.toHaveProperty("memolite-server");
     expect(packageJson.bin).not.toHaveProperty("memolite-mcp-stdio");

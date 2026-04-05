@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -14,9 +17,18 @@ describe("health routes", () => {
   afterEach(() => {
     clearSettingsCache();
     delete process.env.MEMOLITE_APP_NAME;
+    delete process.env.MEMOLITE_SQLITE_PATH;
+    delete process.env.MEMOLITE_KUZU_PATH;
   });
 
+  const useTmpDb = (): void => {
+    const root = mkdtempSync(join(tmpdir(), "memolite-n-health-"));
+    process.env.MEMOLITE_SQLITE_PATH = join(root, "memolite.sqlite3");
+    process.env.MEMOLITE_KUZU_PATH = join(root, "kuzu");
+  };
+
   it("returns ok from /health", async () => {
+    useTmpDb();
     process.env.MEMOLITE_APP_NAME = "MemLite Node";
     const app = createHttpApp();
 
@@ -36,6 +48,7 @@ describe("health routes", () => {
   });
 
   it("returns service and version from /version", async () => {
+    useTmpDb();
     process.env.MEMOLITE_APP_NAME = "MemLite Node";
     const app = createHttpApp();
 
@@ -54,6 +67,7 @@ describe("health routes", () => {
   });
 
   it("exposes a minimal openapi document and validates required project fields", async () => {
+    useTmpDb();
     const app = createHttpApp();
 
     const openapi = await app.inject({

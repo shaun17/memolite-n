@@ -2,6 +2,7 @@ import {
   type EmbedderProvider,
   type RerankerProvider
 } from "../common/models/provider-factory.js";
+import { vectorItemId } from "../derivatives/pipeline.js";
 import { KuzuCompatStore } from "../graph/kuzu-compat-store.js";
 import type { MetricsRegistry } from "../metrics/registry.js";
 import { type EpisodeRecord, EpisodeStore } from "../storage/episode-store.js";
@@ -194,24 +195,38 @@ export class EpisodicSearchService {
     if (derivativeUids.length === 0) {
       return [];
     }
-    const placeholders = derivativeUids.map(() => "?").join(", ");
+    // Build a map from feature_id (integer) back to derivative_uid
+    const featureIdToUid = new Map<number, string>();
+    for (const uid of derivativeUids) {
+      featureIdToUid.set(vectorItemId(uid), uid);
+    }
+    const featureIds = [...featureIdToUid.keys()];
+    const placeholders = featureIds.map(() => "?").join(", ");
     const rows = this.database.connection
       .prepare(
         `
-          SELECT derivative_uid, embedding
+          SELECT feature_id, embedding
           FROM derivative_feature_vectors
-          WHERE derivative_uid IN (${placeholders})
-          ORDER BY derivative_uid
+          WHERE feature_id IN (${placeholders})
+          ORDER BY feature_id
         `
       )
-      .all(...derivativeUids) as Array<{
-      derivative_uid: string;
+      .all(...featureIds) as Array<{
+      feature_id: number;
       embedding: Uint8Array;
     }>;
-    return rows.map((row) => ({
-      derivative_uid: row.derivative_uid,
-      embedding: decodeFloat32Embedding(row.embedding)
-    }));
+    return rows
+      .map((row) => {
+        const derivativeUid = featureIdToUid.get(row.feature_id);
+        if (derivativeUid === undefined) {
+          return null;
+        }
+        return {
+          derivative_uid: derivativeUid,
+          embedding: decodeFloat32Embedding(row.embedding)
+        };
+      })
+      .filter((entry): entry is { derivative_uid: string; embedding: number[] } => entry !== null);
   }
 
   private expandContext(matches: EpisodicSearchMatch[], contextWindow: number): EpisodeRecord[] {

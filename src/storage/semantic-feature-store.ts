@@ -249,7 +249,7 @@ export class SemanticFeatureStore {
         `
           SELECT DISTINCT feature_id
           FROM semantic_citations
-          WHERE episode_uid IN (${placeholders})
+          WHERE episode_id IN (${placeholders})
           ORDER BY feature_id
         `
       )
@@ -269,7 +269,7 @@ export class SemanticFeatureStore {
           LEFT JOIN semantic_citations c ON c.feature_id = f.id
           WHERE f.id IN (${placeholders})
           GROUP BY f.id
-          HAVING COUNT(c.episode_uid) = 0
+          HAVING COUNT(c.episode_id) = 0
           ORDER BY f.id
         `
       )
@@ -292,7 +292,7 @@ export class SemanticFeatureStore {
   addCitations(featureId: number, historyIds: string[]): void {
     const insert = this.database.connection.prepare(
       `
-        INSERT OR IGNORE INTO semantic_citations (feature_id, episode_uid)
+        INSERT OR IGNORE INTO semantic_citations (feature_id, episode_id)
         VALUES (?, ?)
       `
     );
@@ -384,7 +384,7 @@ export class SemanticFeatureStore {
       .prepare(`DELETE FROM semantic_set_ingested_history WHERE history_id IN (${placeholders})`)
       .run(...historyIds);
     this.database.connection
-      .prepare(`DELETE FROM semantic_citations WHERE episode_uid IN (${placeholders})`)
+      .prepare(`DELETE FROM semantic_citations WHERE episode_id IN (${placeholders})`)
       .run(...historyIds);
   }
 

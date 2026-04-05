@@ -95,11 +95,11 @@ describe("snapshot tools", () => {
       .run(1, encodeFloat32Embedding([0.1, 0.2]));
     source.connection
       .prepare(
-        "INSERT INTO derivative_feature_vectors (derivative_uid, item_id, episode_uid, embedding) VALUES (?, ?, ?, ?)"
+        "INSERT INTO derivative_feature_vectors (feature_id, embedding) VALUES (?, ?)"
       )
-      .run("ep-1:d:1", 11, "ep-1", encodeFloat32Embedding([0.3, 0.4]));
+      .run(11, encodeFloat32Embedding([0.3, 0.4]));
     source.connection
-      .prepare("INSERT INTO semantic_citations (feature_id, episode_uid) VALUES (?, ?)")
+      .prepare("INSERT INTO semantic_citations (feature_id, episode_id) VALUES (?, ?)")
       .run(1, "ep-1");
     source.connection
       .prepare(
@@ -117,7 +117,7 @@ describe("snapshot tools", () => {
     expect(exported.tables.semantic_features[0].feature_name).toBe("favorite_food");
     expect(exported.tables.semantic_config_tag[0].name).toBe("food");
     expect(exported.tables.semantic_feature_vectors[0].feature_id).toBe(1);
-    expect(exported.tables.derivative_feature_vectors[0].derivative_uid).toBe("ep-1:d:1");
+    expect(exported.tables.derivative_feature_vectors[0].feature_id).toBe(11);
 
     await importSnapshot(targetPath, snapshotPath, targetKuzuPath);
 

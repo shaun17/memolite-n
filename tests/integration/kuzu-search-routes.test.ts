@@ -21,7 +21,7 @@ describe("kuzu-backed episodic search routes", () => {
     delete process.env.MEMOLITE_EMBEDDER_PROVIDER;
   });
 
-  it("resolves episodic matches through kuzu graph edges instead of derivative_feature_vectors.episode_uid", async () => {
+  it("resolves episodic matches through kuzu graph edges", async () => {
     const root = mkdtempSync(join(tmpdir(), "memolite-n-kuzu-search-"));
     process.env.MEMOLITE_SQLITE_PATH = join(root, "memolite.sqlite3");
     process.env.MEMOLITE_KUZU_PATH = join(root, "kuzu");
@@ -45,15 +45,6 @@ describe("kuzu-backed episodic search routes", () => {
     setTransformersBackendLoaderForTests(async () => backend);
 
     const app = createHttpApp();
-    const resources = (app as unknown as {
-      memoliteResources: {
-        sqlite: {
-          connection: {
-            prepare: (sql: string) => { run: (...params: unknown[]) => void };
-          };
-        };
-      };
-    }).memoliteResources;
 
     await app.inject({
       method: "POST",
@@ -92,12 +83,6 @@ describe("kuzu-backed episodic search routes", () => {
         ]
       }
     });
-
-    resources.sqlite.connection
-      .prepare(
-        "UPDATE derivative_feature_vectors SET episode_uid = ? WHERE derivative_uid LIKE ?"
-      )
-      .run("corrupted-episode", "ep-1:%");
 
     const search = await app.inject({
       method: "POST",

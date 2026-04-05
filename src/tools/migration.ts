@@ -108,17 +108,12 @@ export const rebuildVectorsSnapshot = async ({
       const episodes = listActiveEpisodes(database);
       database.connection.prepare("DELETE FROM derivative_feature_vectors").run();
       const insert = database.connection.prepare(
-        `
-          INSERT INTO derivative_feature_vectors (derivative_uid, item_id, episode_uid, embedding)
-          VALUES (?, ?, ?, ?)
-        `
+        "INSERT INTO derivative_feature_vectors (feature_id, embedding) VALUES (?, ?)"
       );
       for (const episode of episodes) {
         for (const derivative of buildDerivativesForEpisode(episode as never)) {
           insert.run(
-            derivative.uid,
             vectorItemId(derivative.uid),
-            derivative.episode_uid,
             encodeFloat32Embedding(await embedder.encode(derivative.content))
           );
         }
@@ -159,14 +154,12 @@ export const reconcileSnapshot = ({
       }>).map((row) => row.feature_id)
     );
     const episodeIds = new Set(listActiveEpisodes(database).map((episode) => episode.uid));
-    const derivativeVectorIds = new Set(
+    const derivativeVectorFeatureIds = new Set(
       (
         database.connection
-          .prepare(
-            "SELECT derivative_uid, episode_uid FROM derivative_feature_vectors ORDER BY derivative_uid"
-          )
-          .all() as Array<{ derivative_uid: string; episode_uid: string | null }>
-      ).map((row) => row.derivative_uid)
+          .prepare("SELECT feature_id FROM derivative_feature_vectors ORDER BY feature_id")
+          .all() as Array<{ feature_id: number }>
+      ).map((row) => row.feature_id)
     );
     const kuzuSnapshot = new KuzuCompatStore(kuzuPath).readSnapshotSync();
     const graph =
@@ -177,11 +170,21 @@ export const reconcileSnapshot = ({
     const derivativeGraphEpisodeIds = new Set(graph.derivatives.map((node) => node.episode_uid));
     const graphDerivativeUids = new Set(graph.derivatives.map((node) => node.uid));
 
+    // Map graph derivative UIDs to feature_ids for comparison
+    const graphDerivativeFeatureIds = new Set(
+      [...graphDerivativeUids].map((uid) => vectorItemId(uid))
+    );
+
     return {
       missing_embedding_feature_ids: [...featureIds].filter((id) => !vectorIds.has(id)).sort((a, b) => a - b),
       orphan_semantic_vector_ids: [...vectorIds].filter((id) => !featureIds.has(id)).sort((a, b) => a - b),
-      missing_derivative_vector_ids: [...graphDerivativeUids].filter((id) => !derivativeVectorIds.has(id)).sort(),
-      orphan_derivative_vector_ids: [...derivativeVectorIds].filter((id) => !graphDerivativeUids.has(id)).sort(),
+      missing_derivative_vector_ids: [...graphDerivativeUids].filter(
+        (uid) => !derivativeVectorFeatureIds.has(vectorItemId(uid))
+      ).sort(),
+      orphan_derivative_vector_ids: [...derivativeVectorFeatureIds]
+        .filter((id) => !graphDerivativeFeatureIds.has(id))
+        .sort((a, b) => a - b)
+        .map(String),
       missing_graph_edge_episode_ids: [...derivativeGraphEpisodeIds]
         .filter((id) => !episodeGraphIds.has(id))
         .sort(),
@@ -214,10 +217,10 @@ export const repairSnapshot = async ({
         .prepare("DELETE FROM semantic_feature_vectors WHERE feature_id = ?")
         .run(featureId).changes;
     }
-    for (const episodeUid of before.orphan_derivative_vector_ids) {
+    for (const featureId of before.orphan_derivative_vector_ids) {
       removed += database.connection
-        .prepare("DELETE FROM derivative_feature_vectors WHERE derivative_uid = ?")
-        .run(episodeUid).changes;
+        .prepare("DELETE FROM derivative_feature_vectors WHERE feature_id = ?")
+        .run(Number(featureId)).changes;
     }
     removed += before.orphan_episode_graph_nodes.length;
     removed += before.orphan_derivative_nodes.length;

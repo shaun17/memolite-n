@@ -78,21 +78,24 @@ export class CompatibilitySyncService {
 
     for (const uid of uids) {
       if (!activeIds.has(uid)) {
-        this.database.connection
-          .prepare("DELETE FROM derivative_feature_vectors WHERE episode_uid = ?")
-          .run(uid);
+        const deletedEpisodes = this.episodeStore.getEpisodes([uid]);
+        for (const episode of deletedEpisodes) {
+          const derivatives = buildDerivativesForEpisode(episode);
+          for (const derivative of derivatives) {
+            this.database.connection
+              .prepare("DELETE FROM derivative_feature_vectors WHERE feature_id = ?")
+              .run(vectorItemId(derivative.uid));
+          }
+        }
       }
     }
 
     const upsert = this.database.connection.prepare(
       `
-        INSERT INTO derivative_feature_vectors (derivative_uid, item_id, episode_uid, embedding)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(derivative_uid)
-        DO UPDATE SET
-          item_id = excluded.item_id,
-          episode_uid = excluded.episode_uid,
-          embedding = excluded.embedding
+        INSERT INTO derivative_feature_vectors (feature_id, embedding)
+        VALUES (?, ?)
+        ON CONFLICT(feature_id)
+        DO UPDATE SET embedding = excluded.embedding
       `
     );
     for (const episode of activeEpisodes) {
@@ -100,9 +103,7 @@ export class CompatibilitySyncService {
       for (const derivative of derivatives) {
         const embedding = await this.embedder.encode(derivative.content);
         upsert.run(
-          derivative.uid,
           vectorItemId(derivative.uid),
-          derivative.episode_uid,
           encodeFloat32Embedding(embedding)
         );
       }
@@ -115,17 +116,15 @@ export class CompatibilitySyncService {
     this.database.connection.prepare("DELETE FROM derivative_feature_vectors").run();
     const insert = this.database.connection.prepare(
       `
-        INSERT INTO derivative_feature_vectors (derivative_uid, item_id, episode_uid, embedding)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO derivative_feature_vectors (feature_id, embedding)
+        VALUES (?, ?)
       `
     );
     for (const episode of this.listActiveEpisodes()) {
       const derivatives = buildDerivativesForEpisode(episode);
       for (const derivative of derivatives) {
         insert.run(
-          derivative.uid,
           vectorItemId(derivative.uid),
-          derivative.episode_uid,
           encodeFloat32Embedding(await this.embedder.encode(derivative.content))
         );
       }

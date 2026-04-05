@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { Connection, Database, type KuzuValue, type QueryResult } from "kuzu";
@@ -178,53 +178,65 @@ export class KuzuCompatStore {
   }
 
   readSnapshotSync(): GraphMirrorSnapshot {
+    mkdirSync(dirname(this.databasePath), { recursive: true });
     try {
-      mkdirSync(dirname(this.databasePath), { recursive: true });
-      const database = new Database(this.databasePath);
-      database.initSync();
-      const connection = new Connection(database);
-      connection.initSync();
-      try {
-        for (const statement of KUZU_BOOTSTRAP_STATEMENTS) {
-          connection.querySync(statement);
+      return this._readSnapshotSyncOnce();
+    } catch (error) {
+      if (isInvalidDatabaseError(error)) {
+        purgeKuzuFiles(this.databasePath);
+        try {
+          return this._readSnapshotSyncOnce();
+        } catch {
+          return emptySnapshot();
         }
-        const episodesResult = connection.querySync(
-          `
-            MATCH (n:Episode)
-            RETURN n.uid AS uid,
-                   n.session_id AS session_id,
-                   n.content AS content,
-                   n.content_type AS content_type,
-                   n.created_at AS created_at,
-                   n.metadata_json AS metadata_json
-            ORDER BY uid
-          `
-        );
-        const derivativesResult = connection.querySync(
-          `
-            MATCH (n:Derivative)
-            RETURN n.uid AS uid,
-                   n.episode_uid AS episode_uid,
-                   n.session_id AS session_id,
-                   n.content AS content,
-                   n.content_type AS content_type,
-                   n.sequence_num AS sequence_num,
-                   n.metadata_json AS metadata_json
-            ORDER BY uid
-          `
-        );
-        return {
-          episodes: asSingleResultSync(episodesResult).getAllSync() as GraphEpisodeNode[],
-          derivatives: asSingleResultSync(
-            derivativesResult
-          ).getAllSync() as GraphDerivativeNode[]
-        };
-      } finally {
-        connection.closeSync();
-        database.closeSync();
       }
-    } catch {
       return emptySnapshot();
+    }
+  }
+
+  private _readSnapshotSyncOnce(): GraphMirrorSnapshot {
+    const database = new Database(this.databasePath);
+    database.initSync();
+    const connection = new Connection(database);
+    connection.initSync();
+    try {
+      for (const statement of KUZU_BOOTSTRAP_STATEMENTS) {
+        connection.querySync(statement);
+      }
+      const episodesResult = connection.querySync(
+        `
+          MATCH (n:Episode)
+          RETURN n.uid AS uid,
+                 n.session_id AS session_id,
+                 n.content AS content,
+                 n.content_type AS content_type,
+                 n.created_at AS created_at,
+                 n.metadata_json AS metadata_json
+          ORDER BY uid
+        `
+      );
+      const derivativesResult = connection.querySync(
+        `
+          MATCH (n:Derivative)
+          RETURN n.uid AS uid,
+                 n.episode_uid AS episode_uid,
+                 n.session_id AS session_id,
+                 n.content AS content,
+                 n.content_type AS content_type,
+                 n.sequence_num AS sequence_num,
+                 n.metadata_json AS metadata_json
+          ORDER BY uid
+        `
+      );
+      return {
+        episodes: asSingleResultSync(episodesResult).getAllSync() as GraphEpisodeNode[],
+        derivatives: asSingleResultSync(
+          derivativesResult
+        ).getAllSync() as GraphDerivativeNode[]
+      };
+    } finally {
+      connection.closeSync();
+      database.closeSync();
     }
   }
 
@@ -308,6 +320,18 @@ export class KuzuCompatStore {
     work: (connection: Connection) => Promise<T>
   ): Promise<T> {
     mkdirSync(dirname(this.databasePath), { recursive: true });
+    try {
+      return await this._openAndRun(work);
+    } catch (error) {
+      if (isInvalidDatabaseError(error)) {
+        purgeKuzuFiles(this.databasePath);
+        return await this._openAndRun(work);
+      }
+      throw error;
+    }
+  }
+
+  private async _openAndRun<T>(work: (connection: Connection) => Promise<T>): Promise<T> {
     const database = new Database(this.databasePath);
     await database.init();
     const connection = new Connection(database);
@@ -323,6 +347,22 @@ export class KuzuCompatStore {
     }
   }
 }
+
+const isInvalidDatabaseError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("not a valid Kuzu database") ||
+    message.includes("Invalid database") ||
+    message.includes("unordered_map::at")
+  );
+};
+
+/** Delete main DB file plus any WAL/lock sidecars so kuzu can start fresh. */
+const purgeKuzuFiles = (databasePath: string): void => {
+  for (const suffix of ["", ".wal", ".lock"]) {
+    rmSync(`${databasePath}${suffix}`, { recursive: true, force: true });
+  }
+};
 
 const asSingleResult = (result: QueryResult | QueryResult[]): QueryResult => {
   return Array.isArray(result) ? result[0]! : result;
