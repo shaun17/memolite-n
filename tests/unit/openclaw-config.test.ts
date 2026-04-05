@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { executeOpenClawCommand } from "../../src/openclaw/cli.js";
 import {
   createOpenClawPaths,
   readOpenClawPluginConfig,
@@ -138,6 +139,40 @@ describe("openclaw config manager", () => {
     };
     expect(saved.plugins.allow).toContain("openclaw-memolite-n");
     expect(saved.plugins.allow).toContain("telegram");
+  });
+
+  it("setup command outputs { setup, service } and preserves plugin files and config", async () => {
+    const root = mkdtempSync(join(tmpdir(), "memolite-n-openclaw-cli-setup-"));
+    roots.push(root);
+    const home = join(root, "home");
+    const paths = createOpenClawPaths(home);
+    const output: string[] = [];
+
+    const code = await executeOpenClawCommand(["setup", "--base-url", "http://127.0.0.1:19999"], {
+      paths,
+      write: (text) => output.push(text),
+      // use an unsupported platform so no real system service call is made
+      platform: "win32" as NodeJS.Platform
+    });
+
+    expect(code).toBe(0);
+    const result = JSON.parse(output.join("")) as {
+      setup: Record<string, unknown>;
+      service: Record<string, unknown>;
+    };
+    // core setup result is intact
+    expect(result.setup.baseUrl).toBe("http://127.0.0.1:19999");
+    expect(result.setup.orgId).toBe("openclaw");
+    // plugin files were written
+    expect(existsSync(join(paths.pluginDir, "package.json"))).toBe(true);
+    // config written to openclaw.json
+    const saved = JSON.parse(readFileSync(paths.configPath, "utf8")) as {
+      plugins: { allow: string[] };
+    };
+    expect(saved.plugins.allow).toContain("openclaw-memolite-n");
+    // service field is present (service start failed on win32, but setup succeeded)
+    expect(result.service).toBeDefined();
+    expect(typeof result.service.healthOk === "boolean" || result.service.skipped === true).toBe(true);
   });
 
   it("removes the plugin id from plugins.allow on uninstall", () => {
