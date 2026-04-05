@@ -96,6 +96,7 @@ export const executeServiceCommand = async (
   const descriptor = {
     label: paths.label,
     memoliteBin,
+    nodeBin: process.execPath,
     host: settings.host,
     port: settings.port,
     sqlitePath: settings.sqlitePath,

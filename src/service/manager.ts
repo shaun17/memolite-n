@@ -6,6 +6,7 @@ export const SERVICE_LABEL = "ai.memolite-n.server";
 export type ServiceRenderInput = {
   label: string;
   memoliteBin: string;
+  nodeBin?: string;
   host: string;
   port: number;
   sqlitePath: string;
@@ -45,6 +46,7 @@ export const createServicePaths = (
 export const renderLaunchAgentPlist = ({
   label,
   memoliteBin,
+  nodeBin,
   host,
   port,
   sqlitePath,
@@ -52,7 +54,15 @@ export const renderLaunchAgentPlist = ({
   outLog,
   errLog,
   execPath
-}: ServiceRenderInput): string => `<?xml version="1.0" encoding="UTF-8"?>
+}: ServiceRenderInput): string => {
+  // When nodeBin is provided, bypass shebang by calling node directly.
+  // macOS launchd EnvironmentVariables PATH is not visible to /usr/bin/env
+  // when resolving shebang interpreters, causing "env: node: No such file".
+  const programArgs = nodeBin
+    ? `    <string>${nodeBin}</string>\n    <string>${memoliteBin}</string>`
+    : `    <string>${memoliteBin}</string>`;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -60,7 +70,7 @@ export const renderLaunchAgentPlist = ({
   <string>${label}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${memoliteBin}</string>
+${programArgs}
     <string>serve</string>
   </array>
   <key>EnvironmentVariables</key>
@@ -87,6 +97,7 @@ export const renderLaunchAgentPlist = ({
 </dict>
 </plist>
 `;
+};
 
 export const renderSystemdUserUnit = ({
   memoliteBin,
