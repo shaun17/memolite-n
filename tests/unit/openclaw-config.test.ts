@@ -117,4 +117,55 @@ describe("openclaw config manager", () => {
     expect(readFileSync(paths.configPath, "utf8")).not.toContain("openclaw-memolite-n");
     expect(readFileSync(paths.configPath, "utf8")).not.toContain("\"memory\"");
   });
+
+  it("adds the plugin id to plugins.allow on setup", () => {
+    const root = mkdtempSync(join(tmpdir(), "memolite-n-openclaw-d-"));
+    roots.push(root);
+    const home = join(root, "home");
+    const configDir = join(home, ".openclaw");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "openclaw.json"),
+      JSON.stringify({ plugins: { allow: ["telegram"] } }),
+      "utf8"
+    );
+    const paths = createOpenClawPaths(home);
+
+    setupOpenClawPlugin(paths);
+
+    const saved = JSON.parse(readFileSync(paths.configPath, "utf8")) as {
+      plugins: { allow: string[] };
+    };
+    expect(saved.plugins.allow).toContain("openclaw-memolite-n");
+    expect(saved.plugins.allow).toContain("telegram");
+  });
+
+  it("removes the plugin id from plugins.allow on uninstall", () => {
+    const root = mkdtempSync(join(tmpdir(), "memolite-n-openclaw-e-"));
+    roots.push(root);
+    const home = join(root, "home");
+    const configDir = join(home, ".openclaw");
+    const pluginDir = join(configDir, "extensions", "openclaw-memolite-n");
+    mkdirSync(pluginDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "openclaw.json"),
+      JSON.stringify({
+        plugins: {
+          allow: ["telegram", "openclaw-memolite-n"],
+          slots: { memory: "openclaw-memolite-n" },
+          entries: { "openclaw-memolite-n": { enabled: true } }
+        }
+      }),
+      "utf8"
+    );
+    const paths = createOpenClawPaths(home);
+
+    uninstallOpenClawPlugin(paths);
+
+    const saved = JSON.parse(readFileSync(paths.configPath, "utf8")) as {
+      plugins: { allow: string[] };
+    };
+    expect(saved.plugins.allow).not.toContain("openclaw-memolite-n");
+    expect(saved.plugins.allow).toContain("telegram");
+  });
 });

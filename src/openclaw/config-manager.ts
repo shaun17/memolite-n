@@ -49,6 +49,11 @@ const ensurePluginConfig = (
   const plugins = (document.plugins ??= {});
   const entries = (plugins.entries ??= {});
   const slots = (plugins.slots ??= {});
+  const allow: string[] = (plugins.allow ??= []);
+
+  if (!allow.includes(OPENCLAW_PLUGIN_ID)) {
+    allow.push(OPENCLAW_PLUGIN_ID);
+  }
 
   slots.memory = OPENCLAW_PLUGIN_ID;
   const entry = (entries[OPENCLAW_PLUGIN_ID] ??= {});
@@ -196,6 +201,8 @@ export const uninstallOpenClawPlugin = (
     }
 
     if (!dryRun) {
+      const allow: string[] = plugins.allow ?? [];
+      plugins.allow = allow.filter((id: string) => id !== OPENCLAW_PLUGIN_ID);
       saveJson(paths.configPath, document);
     }
   }
