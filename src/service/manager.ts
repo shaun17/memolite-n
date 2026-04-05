@@ -12,6 +12,7 @@ export type ServiceRenderInput = {
   kuzuPath: string;
   outLog: string;
   errLog: string;
+  execPath?: string;
 };
 
 export type ServicePaths = {
@@ -49,7 +50,8 @@ export const renderLaunchAgentPlist = ({
   sqlitePath,
   kuzuPath,
   outLog,
-  errLog
+  errLog,
+  execPath
 }: ServiceRenderInput): string => `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -63,6 +65,8 @@ export const renderLaunchAgentPlist = ({
   </array>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>PATH</key>
+    <string>${execPath ?? "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}</string>
     <key>MEMOLITE_HOST</key>
     <string>${host}</string>
     <key>MEMOLITE_PORT</key>

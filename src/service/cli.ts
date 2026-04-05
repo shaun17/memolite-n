@@ -101,7 +101,8 @@ export const executeServiceCommand = async (
     sqlitePath: settings.sqlitePath,
     kuzuPath: settings.kuzuPath,
     outLog: paths.outLog,
-    errLog: paths.errLog
+    errLog: paths.errLog,
+    execPath: process.env.PATH
   };
 
   try {
