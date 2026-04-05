@@ -2,6 +2,11 @@
   "name": "memolite-n",
   "version": "0.1.0",
   "description": "Node/TypeScript rewrite of memolite",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wenren/memolite-n.git"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,7 +26,7 @@
     }
   },
   "bin": {
-    "memolite": "./bin/memolite.js"
+    "memolite-n": "./bin/memolite.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

@@ -50,7 +50,7 @@ type HealthResponse = {
   status: string;
 };
 
-const DEFAULT_BASE_URL = "http://127.0.0.1:18731";
+const DEFAULT_BASE_URL = "http://127.0.0.1:18732";
 const DEFAULT_TOP_K = 5;
 const DEFAULT_SEARCH_THRESHOLD = 0.5;
 const DEFAULT_FORGET_THRESHOLD = 0.85;
@@ -501,7 +501,7 @@ async function autoCaptureMessages(params: {
       sequence += 1;
     }
   }
-  api.logger.info("openclaw-memolite: auto-capture completed");
+  api.logger.info("openclaw-memolite-n: auto-capture completed");
 }
 
 async function executeSafely<T>(
@@ -510,16 +510,16 @@ async function executeSafely<T>(
   ctx: OpenClawContext,
   callback: () => Promise<T>
 ): Promise<T | { error: string }> {
-  api.logger.info(`openclaw-memolite: ${operation} invoked session=${ctx.sessionKey ?? "none"}`);
+  api.logger.info(`openclaw-memolite-n: ${operation} invoked session=${ctx.sessionKey ?? "none"}`);
   try {
     const result = await callback();
     api.logger.info(
-      `openclaw-memolite: ${operation} succeeded session=${ctx.sessionKey ?? "none"}`
+      `openclaw-memolite-n: ${operation} succeeded session=${ctx.sessionKey ?? "none"}`
     );
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    api.logger.warn(`openclaw-memolite: ${operation} failed: ${message}`);
+    api.logger.warn(`openclaw-memolite-n: ${operation} failed: ${message}`);
     return { error: message };
   }
 }
@@ -530,7 +530,7 @@ function withExecutionEnvelope<T>(
   data: T
 ): {
   provider: "memolite";
-  pluginId: "openclaw-memolite";
+  pluginId: "openclaw-memolite-n";
   tool: string;
   executed: true;
   sessionKey: string | null;
@@ -538,7 +538,7 @@ function withExecutionEnvelope<T>(
 } {
   return {
     provider: "memolite",
-    pluginId: "openclaw-memolite",
+    pluginId: "openclaw-memolite-n",
     tool: toolName,
     executed: true,
     sessionKey: ctx.sessionKey ?? null,
@@ -557,7 +557,7 @@ function registerToolAliases(
 }
 
 const memlitePlugin = {
-  id: "openclaw-memolite",
+  id: "openclaw-memolite-n",
   name: "MemoLite",
   description: "memoLite-backed memory tools with auto recall/capture",
   kind: "memory" as const,
@@ -828,7 +828,7 @@ const memlitePlugin = {
               `</relevant-memories>`
           };
         } catch (error) {
-          api.logger.warn(`openclaw-memolite: recall failed: ${String(error)}`);
+          api.logger.warn(`openclaw-memolite-n: recall failed: ${String(error)}`);
           return undefined;
         }
       });
@@ -848,15 +848,15 @@ const memlitePlugin = {
             messages: event.messages
           });
         } catch (error) {
-          api.logger.warn(`openclaw-memolite: capture failed: ${String(error)}`);
+          api.logger.warn(`openclaw-memolite-n: capture failed: ${String(error)}`);
         }
       });
     }
 
     api.registerService({
-      id: "openclaw-memolite",
-      start: () => api.logger.info("openclaw-memolite: initialized"),
-      stop: () => api.logger.info("openclaw-memolite: stopped")
+      id: "openclaw-memolite-n",
+      start: () => api.logger.info("openclaw-memolite-n: initialized"),
+      stop: () => api.logger.info("openclaw-memolite-n: stopped")
     });
   }
 };

@@ -26,7 +26,7 @@ describe("load-test tools", () => {
     const port =
       address !== null && typeof address === "object" && "port" in address
         ? address.port
-        : 18731;
+        : 18732;
 
     const result = await loadTestMemorySearch({
       baseUrl: `http://127.0.0.1:${port}`,

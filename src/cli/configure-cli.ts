@@ -44,7 +44,7 @@ export const buildCliSettings = (
   const dataDir = input.dataDir ?? DEFAULT_DATA_DIR;
   return {
     host: input.host ?? "127.0.0.1",
-    port: input.port ?? 18731,
+    port: input.port ?? 18732,
     sqlitePath: join(dataDir, "memolite.sqlite3"),
     kuzuPath: join(dataDir, "kuzu"),
     sqliteVecExtensionPath: input.sqliteVecExtensionPath ?? null

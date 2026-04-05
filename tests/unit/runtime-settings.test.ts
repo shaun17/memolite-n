@@ -44,7 +44,7 @@ describe("runtime settings", () => {
 
     const settings = getSettings();
 
-    expect(settings.port).toBe(18731);
+    expect(settings.port).toBe(18732);
     expect(process.env.MEMOLITE_PORT).toBeUndefined();
   });
 

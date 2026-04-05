@@ -2,8 +2,8 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-export const OPENCLAW_PLUGIN_ID = "openclaw-memolite";
-export const DEFAULT_BASE_URL = "http://127.0.0.1:18731";
+export const OPENCLAW_PLUGIN_ID = "openclaw-memolite-n";
+export const DEFAULT_BASE_URL = "http://127.0.0.1:18732";
 
 export type OpenClawPluginConfig = {
   baseUrl: string;
@@ -256,10 +256,10 @@ export const doctorOpenClawPlugin = async (
     issues.push(`plugin dir missing: ${paths.pluginDir}`);
   }
   if (status.memorySlot !== OPENCLAW_PLUGIN_ID) {
-    issues.push("plugins.slots.memory is not openclaw-memolite");
+    issues.push("plugins.slots.memory is not openclaw-memolite-n");
   }
   if (!status.pluginEntryEnabled) {
-    issues.push("plugins.entries.openclaw-memolite.enabled is false");
+    issues.push("plugins.entries.openclaw-memolite-n.enabled is false");
   }
   if (!status.healthOk) {
     issues.push(`memolite health check failed: ${status.healthDetail}`);

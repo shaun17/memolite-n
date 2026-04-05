@@ -107,7 +107,7 @@ describe("openclaw runtime plugin", () => {
     );
 
     expect((recall as { prependContext: string }).prependContext).toContain("User likes ramen.");
-    expect(logger.info).toHaveBeenCalledWith("openclaw-memolite: auto-capture completed");
+    expect(logger.info).toHaveBeenCalledWith("openclaw-memolite-n: auto-capture completed");
   });
 
   it("switches search scope to all when the query asks for all memories", async () => {
@@ -161,7 +161,7 @@ describe("openclaw runtime plugin", () => {
     expect(failed).toEqual({ error: '500: {"detail":"boom"}' });
     expect(status).toEqual({
       provider: "memolite",
-      pluginId: "openclaw-memolite",
+      pluginId: "openclaw-memolite-n",
       tool: "memolite_status",
       executed: true,
       sessionKey: "session-a",

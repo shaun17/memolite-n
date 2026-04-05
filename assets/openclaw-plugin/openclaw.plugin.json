@@ -1,11 +1,11 @@
 {
-  "id": "openclaw-memolite",
+  "id": "openclaw-memolite-n",
   "kind": "memory",
   "main": "./dist/index.mjs",
   "uiHints": {
     "baseUrl": {
       "label": "memoLite Base URL",
-      "placeholder": "http://127.0.0.1:18731",
+      "placeholder": "http://127.0.0.1:18732",
       "help": "Base URL for the memoLite service"
     },
     "userId": {

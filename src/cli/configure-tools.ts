@@ -50,7 +50,7 @@ export const executeConfigureCommand = async (argv: string[]): Promise<number> =
       dataDir,
       sqliteVecExtensionPath: readOption(rest, "--sqlite-vec-extension"),
       host: readOption(rest, "--host") ?? "127.0.0.1",
-      port: Number(readOption(rest, "--port") ?? "18731"),
+      port: Number(readOption(rest, "--port") ?? "18732"),
       overwrite: hasFlag(rest, "--overwrite")
     });
     return 0;
@@ -65,7 +65,7 @@ export const executeConfigureCommand = async (argv: string[]): Promise<number> =
     const settings = buildCliSettings({
       dataDir,
       host: readOption(rest, "--host") ?? "127.0.0.1",
-      port: Number(readOption(rest, "--port") ?? "18731")
+      port: Number(readOption(rest, "--port") ?? "18732")
     });
     writeEnvFile({
       output: readOption(rest, "--output") ?? ".env.example",
@@ -154,7 +154,7 @@ export const executeConfigureCommand = async (argv: string[]): Promise<number> =
   if (subcommand === "load-test") {
     writeStructuredOutput(
       await loadTestMemorySearch({
-        baseUrl: readOption(rest, "--base-url") ?? "http://127.0.0.1:18731",
+        baseUrl: readOption(rest, "--base-url") ?? "http://127.0.0.1:18732",
         orgId: readOption(rest, "--org-id") ?? "demo-org",
         projectId: readOption(rest, "--project-id") ?? "demo-project",
         query: readOption(rest, "--query") ?? "memory recall",

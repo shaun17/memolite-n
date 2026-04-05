@@ -16,7 +16,7 @@ import {
 const seedOpenClawHome = (root: string): string => {
   const home = join(root, "home");
   const configDir = join(home, ".openclaw");
-  const pluginDir = join(configDir, "extensions", "openclaw-memolite");
+  const pluginDir = join(configDir, "extensions", "openclaw-memolite-n");
 
   mkdirSync(pluginDir, { recursive: true });
   writeFileSync(
@@ -28,12 +28,12 @@ const seedOpenClawHome = (root: string): string => {
     join(configDir, "openclaw.json"),
     JSON.stringify({
       plugins: {
-        slots: { memory: "openclaw-memolite" },
+        slots: { memory: "openclaw-memolite-n" },
         entries: {
-          "openclaw-memolite": {
+          "openclaw-memolite-n": {
             enabled: true,
             config: {
-              baseUrl: "http://127.0.0.1:18731",
+              baseUrl: "http://127.0.0.1:18732",
               orgId: "openclaw",
               projectId: "openclaw",
               userId: "openclaw",
@@ -72,7 +72,7 @@ describe("openclaw config manager", () => {
       "http://127.0.0.1:19999"
     );
     expect(readOpenClawPluginConfig(paths)?.baseUrl).toBe("http://127.0.0.1:19999");
-    expect(resetOpenClawPluginConfig(paths).baseUrl).toBe("http://127.0.0.1:18731");
+    expect(resetOpenClawPluginConfig(paths).baseUrl).toBe("http://127.0.0.1:18732");
   });
 
   it("materializes runtime plugin assets during setup", () => {
@@ -101,7 +101,7 @@ describe("openclaw config manager", () => {
 
     expect(result.dryRun).toBe(true);
     expect(existsSync(paths.pluginDir)).toBe(true);
-    expect(readFileSync(paths.configPath, "utf8")).toContain("openclaw-memolite");
+    expect(readFileSync(paths.configPath, "utf8")).toContain("openclaw-memolite-n");
   });
 
   it("removes the plugin entry, memory slot, and plugin directory on uninstall", () => {
@@ -114,7 +114,7 @@ describe("openclaw config manager", () => {
 
     expect(result.dryRun).toBe(false);
     expect(existsSync(paths.pluginDir)).toBe(false);
-    expect(readFileSync(paths.configPath, "utf8")).not.toContain("openclaw-memolite");
+    expect(readFileSync(paths.configPath, "utf8")).not.toContain("openclaw-memolite-n");
     expect(readFileSync(paths.configPath, "utf8")).not.toContain("\"memory\"");
   });
 });

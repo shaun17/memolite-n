@@ -186,7 +186,7 @@ npm run build
 | 变量 | 说明 | 默认值 |
 | --- | --- | --- |
 | `MEMOLITE_HOST` | HTTP / MCP HTTP 监听地址 | `127.0.0.1` |
-| `MEMOLITE_PORT` | HTTP / MCP HTTP 监听端口 | `18731` |
+| `MEMOLITE_PORT` | HTTP / MCP HTTP 监听端口 | `18732` |
 | `MEMOLITE_SQLITE_PATH` | SQLite 文件路径 | 自动解析到 `~/.memolite/memolite.sqlite3` |
 | `MEMOLITE_KUZU_PATH` | Kùzu 目录 | `~/.memolite/kuzu` |
 | `MEMOLITE_SQLITE_VEC_EXTENSION_PATH` | sqlite-vec 扩展路径 | 空 |
@@ -230,7 +230,7 @@ memolite serve
 默认监听：
 
 ```text
-http://127.0.0.1:18731
+http://127.0.0.1:18732
 ```
 
 可用基础端点：
@@ -245,7 +245,7 @@ http://127.0.0.1:18731
 创建项目：
 
 ```bash
-curl -X POST http://127.0.0.1:18731/projects \
+curl -X POST http://127.0.0.1:18732/projects \
   -H 'content-type: application/json' \
   -d '{
     "org_id": "demo-org",
@@ -257,7 +257,7 @@ curl -X POST http://127.0.0.1:18731/projects \
 创建 session：
 
 ```bash
-curl -X POST http://127.0.0.1:18731/sessions \
+curl -X POST http://127.0.0.1:18732/sessions \
   -H 'content-type: application/json' \
   -d '{
     "session_key": "session-a",
@@ -271,7 +271,7 @@ curl -X POST http://127.0.0.1:18731/sessions \
 写入 memory：
 
 ```bash
-curl -X POST http://127.0.0.1:18731/memories \
+curl -X POST http://127.0.0.1:18732/memories \
   -H 'content-type: application/json' \
   -d '{
     "session_key": "session-a",
@@ -293,7 +293,7 @@ curl -X POST http://127.0.0.1:18731/memories \
 搜索 memory：
 
 ```bash
-curl -X POST http://127.0.0.1:18731/memories/search \
+curl -X POST http://127.0.0.1:18732/memories/search \
   -H 'content-type: application/json' \
   -d '{
     "query": "favorite food",
@@ -357,7 +357,7 @@ memolite configure rebuild-vectors --target all --output ./rebuild.json
 
 ```bash
 memolite configure benchmark-search --output ./benchmark.json
-memolite configure load-test --base-url http://127.0.0.1:18731 --output ./load-test.json
+memolite configure load-test --base-url http://127.0.0.1:18732 --output ./load-test.json
 ```
 
 ### 6. service 管理
@@ -386,7 +386,7 @@ memolite openclaw uninstall
 
 ```bash
 memolite openclaw configure show
-memolite openclaw configure set --base-url http://127.0.0.1:18731
+memolite openclaw configure set --base-url http://127.0.0.1:18732
 memolite openclaw configure reset
 ```
 
@@ -396,7 +396,7 @@ memolite openclaw configure reset
 import { MemoliteClient } from "memolite-n";
 
 const client = new MemoliteClient({
-  baseUrl: "http://127.0.0.1:18731"
+  baseUrl: "http://127.0.0.1:18732"
 });
 
 await client.projects.create({

@@ -127,7 +127,7 @@ export const getSettings = (): RuntimeSettings => {
     environment: readString(env, "MEMOLITE_ENVIRONMENT", "development"),
     logLevel: readString(env, "MEMOLITE_LOG_LEVEL", "INFO"),
     host: readString(env, "MEMOLITE_HOST", "127.0.0.1"),
-    port: readNumber(env, "MEMOLITE_PORT", 18731),
+    port: readNumber(env, "MEMOLITE_PORT", 18732),
     sqlitePath: readString(
       env,
       "MEMOLITE_SQLITE_PATH",

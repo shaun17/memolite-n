@@ -21,7 +21,7 @@ describe("configure cli helpers", () => {
     expect(settings.sqlitePath).toBe(join(dataDir, "memolite.sqlite3"));
     expect(settings.kuzuPath).toBe(join(dataDir, "kuzu"));
     expect(settings.host).toBe("127.0.0.1");
-    expect(settings.port).toBe(18731);
+    expect(settings.port).toBe(18732);
   });
 
   it("renders a memolite env file", () => {
