@@ -108,7 +108,7 @@ export class CompatibilitySyncService {
       }
     }
 
-    await this.rebuildGraphMirror();
+    await this.upsertGraphMirror(activeEpisodes);
   }
 
   async syncAllEpisodes(): Promise<void> {
@@ -131,6 +131,13 @@ export class CompatibilitySyncService {
       }
     }
     await this.rebuildGraphMirror();
+  }
+
+  private async upsertGraphMirror(episodes: EpisodeRecord[]): Promise<void> {
+    if (this.kuzuStore !== undefined) {
+      await this.kuzuStore.upsertEpisodes(episodes);
+    }
+    this.graphMirror.upsertEpisodes(episodes);
   }
 
   private async rebuildGraphMirror(): Promise<void> {

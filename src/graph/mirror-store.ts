@@ -58,6 +58,39 @@ export class GraphMirrorStore {
     }
   }
 
+  upsertEpisodes(episodes: EpisodeRecord[]): void {
+    if (episodes.length === 0) return;
+    const existing = this.readSnapshot();
+    const existingEpisodeUids = new Set(existing.episodes.map((e) => e.uid));
+    const existingDerivativeUids = new Set(existing.derivatives.map((d) => d.uid));
+    for (const episode of episodes) {
+      if (!existingEpisodeUids.has(episode.uid)) {
+        existing.episodes.push({
+          uid: episode.uid,
+          session_id: episode.session_id,
+          content: episode.content,
+          content_type: episode.content_type,
+          created_at: episode.created_at,
+          metadata_json: episode.metadata_json
+        });
+      }
+      for (const derivative of buildDerivativesForEpisode(episode)) {
+        if (!existingDerivativeUids.has(derivative.uid)) {
+          existing.derivatives.push({
+            uid: derivative.uid,
+            episode_uid: derivative.episode_uid,
+            session_id: derivative.session_id,
+            content: derivative.content,
+            content_type: derivative.content_type,
+            sequence_num: derivative.sequence_num,
+            metadata_json: derivative.metadata_json
+          });
+        }
+      }
+    }
+    this.writeSnapshot(existing);
+  }
+
   rebuildFromEpisodes(episodes: EpisodeRecord[]): void {
     this.writeSnapshot({
       episodes: episodes.map((episode) => ({

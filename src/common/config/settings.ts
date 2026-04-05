@@ -5,7 +5,7 @@ export const ENV_PREFIX = "MEMOLITE_";
 
 export const DEFAULT_DATA_DIR = join(homedir(), ".memolite");
 export const LEGACY_SQLITE_PATH = join(DEFAULT_DATA_DIR, "memlite.sqlite3");
-export const DEFAULT_KUZU_PATH = join(DEFAULT_DATA_DIR, "kuzu");
+export const DEFAULT_KUZU_PATH = join(DEFAULT_DATA_DIR, "kuzu-n");
 
 export type ResolveDefaultSqlitePathOptions = {
   preferredPath?: string;

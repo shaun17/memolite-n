@@ -13,7 +13,7 @@ memolite-n 当前面向：
 ```text
 ~/.memolite/
 ├── memolite.sqlite3
-└── kuzu/
+└── kuzu-n/
 ```
 
 ## 初始化
@@ -31,7 +31,7 @@ memolite-n configure init --data-dir ~/.memolite
 MEMOLITE_HOST=127.0.0.1
 MEMOLITE_PORT=18732
 MEMOLITE_SQLITE_PATH=/absolute/path/memolite.sqlite3
-MEMOLITE_KUZU_PATH=/absolute/path/kuzu
+MEMOLITE_KUZU_PATH=/absolute/path/kuzu-n
 ```
 
 可选：

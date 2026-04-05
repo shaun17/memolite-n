@@ -42,7 +42,7 @@
 MEMOLITE_HOST=127.0.0.1
 MEMOLITE_PORT=18732
 MEMOLITE_SQLITE_PATH=/Users/example/.memolite/memolite.sqlite3
-MEMOLITE_KUZU_PATH=/Users/example/.memolite/kuzu
+MEMOLITE_KUZU_PATH=/Users/example/.memolite/kuzu-n
 MEMOLITE_LOG_LEVEL=INFO
 MEMOLITE_MCP_API_KEY=replace-me
 ```

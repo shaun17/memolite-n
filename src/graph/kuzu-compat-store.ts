@@ -69,11 +69,26 @@ export class KuzuCompatStore {
     });
   }
 
+  async upsertEpisodes(episodes: EpisodeRecord[]): Promise<void> {
+    if (episodes.length === 0) return;
+    await this.withConnection(async (connection) => {
+      await this._upsertEpisodeBatch(connection, episodes);
+    });
+  }
+
   async rebuildFromEpisodes(episodes: EpisodeRecord[]): Promise<void> {
     await this.withConnection(async (connection) => {
       await connection.query("MATCH (n:Derivative) DETACH DELETE n");
       await connection.query("MATCH (n:Episode) DETACH DELETE n");
 
+      await this._upsertEpisodeBatch(connection, episodes);
+    });
+  }
+
+  private async _upsertEpisodeBatch(
+    connection: Connection,
+    episodes: EpisodeRecord[]
+  ): Promise<void> {
       const episodeStatement = await connection.prepare(`
         MERGE (n:Episode {uid: $uid})
         SET
@@ -125,7 +140,6 @@ export class KuzuCompatStore {
           });
         }
       }
-    });
   }
 
   async readSnapshot(): Promise<GraphMirrorSnapshot> {
